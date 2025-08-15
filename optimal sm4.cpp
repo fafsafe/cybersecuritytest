@@ -7,7 +7,6 @@
 #define SM4_ROUNDS 32
 #define T_TABLE_SIZE 256
 
-// S盒
 static const uint8_t Sbox[16][16] = {
     {0xd6,0x90,0xe9,0xfe,0xcc,0xe1,0x3d,0xb7,0x16,0xb6,0x14,0xc2,0x28,0xfb,0x2c,0x05},
     {0x2b,0x67,0x9a,0x76,0x2a,0xbe,0x04,0xc3,0xaa,0x44,0x13,0x26,0x49,0x86,0x06,0x99},
@@ -27,15 +26,12 @@ static const uint8_t Sbox[16][16] = {
     {0x18,0xf0,0x7d,0xec,0x3a,0xdc,0x4d,0x20,0x79,0xee,0x5f,0x3e,0xd7,0xcb,0x39,0x48}
 };
 
-// T-table
 static uint32_t T[4][T_TABLE_SIZE];
 
-// 线性变换 L
 static inline uint32_t GFNI_L(uint32_t x) {
     return x ^ ((x << 1) ^ (x << 2) ^ (x << 7) & 0xFFFFFFFF);
 }
 
-// 初始化 T-table
 void build_T_table() {
     for (int i = 0; i < T_TABLE_SIZE; i++) {
         uint32_t s = Sbox[i >> 4][i & 0x0F];
@@ -47,7 +43,6 @@ void build_T_table() {
     }
 }
 
-// 密钥扩展
 void KeyExp(uint32_t MK[4], uint32_t rk[32]) {
     static const uint32_t CK[32] = {
         0x00070e15, 0x1c232a31, 0x383f464d, 0x545b6269,
@@ -81,16 +76,17 @@ __m128i TtableTransform(__m128i input) {
 
 void sm4_encrypt(uint32_t input[4], uint32_t MK[4], uint32_t output[4]) {
     uint32_t rk[32];
-    KeyExp(MK, rk);
+    sm4_key_expansion(MK, rk);
 
-    __m128i state = _mm_loadu_si128((__m128i*)input);
+    __m128i state = _mm_loadu_si128((__m128i *)input);
 
     for (int i = 0; i < SM4_ROUNDS; i++) {
-        state = TtableTransform(state);
+        state = _mm_shuffle_epi8(state, _mm_loadu_si128((__m128i *)T[0]));
         state = _mm_xor_si128(state, _mm_set1_epi32(rk[i]));
+        uint32_t l = _mm_cvtsi128_si32(state);
+        state = _mm_set_epi32(GFNI_L(l), GFNI_L(l >> 8), GFNI_L(l >> 16), GFNI_L(l >> 24));
     }
-
-    _mm_storeu_si128((__m128i*)output, state);
+    _mm_storeu_si128((__m128i *)output, state);
 }
 
 int main() {
@@ -108,3 +104,4 @@ int main() {
 
     return 0;
 }
+
