@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <immintrin.h>
+#include "SM4 gcm.cpp"
 
 #define SM4_BLOCK_SIZE 16
 #define SM4_ROUNDS 32
@@ -62,18 +63,6 @@ void KeyExp(uint32_t MK[4], uint32_t rk[32]) {
     }
 }
 
-__m128i TtableTransform(__m128i input) {
-    __m128i result = _mm_setzero_si128();
-
-    for (int i = 0; i < 4; i++) {
-        uint8_t byte = _mm_extract_epi8(input, i);
-        uint32_t t_value = T[0][byte];
-        result = _mm_insert_epi32(result, t_value, i);
-    }
-
-    return result;
-}
-
 void sm4_encrypt(uint32_t input[4], uint32_t MK[4], uint32_t output[4]) {
     uint32_t rk[32];
     sm4_key_expansion(MK, rk);
@@ -104,4 +93,5 @@ int main() {
 
     return 0;
 }
+
 
